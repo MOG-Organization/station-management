@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3345【MOG】ステ＆イベント統合管理ツール</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .container { max-width: 1100px; margin: 0 auto; }
+    h1 { text-align: center; font-size: 1.5rem; margin-bottom: 20px; color: #38bdf8; }
+    
+    /* フォームカード */
+    .form-card { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); border: 1px solid #334155; }
+    .form-title { font-weight: bold; margin-bottom: 12px; color: #38bdf8; display: flex; justify-content: space-between; align-items: center; }
+    .form-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .form-group { flex: 1; min-width: 180px; }
+    label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 4px; }
+    input, select { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 6px; box-sizing: border-box; }
+    .btn-group { display: flex; gap: 10px; }
+    button.add-btn { flex: 2; background: #0284c7; color: white; border: none; padding: 12px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+    button.add-btn:hover { background: #0369a1; }
+    button.cancel-btn { flex: 1; background: #475569; color: white; border: none; padding: 12px; font-weight: bold; border-radius: 6px; cursor: pointer; display: none; }
+
+    /* モード切り替えボタン（UI拡張） */
+    .type-selector { display: flex; gap: 10px; margin-bottom: 20px; width: 100%; flex-wrap: wrap; }
+    .type-btn {
+      flex: 1;
+      min-width: 260px;
+      padding: 12px 16px;
+      background: #0f172a;
+      border: 2px solid #334155;
+      border-radius: 8px;
+      color: #94a3b8;
+      font-size: 0.95rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+      box-sizing: border-box;
+    }
+    .type-btn input[type="radio"] { display: none; }
+    
+    .type-btn.active {
+      background: #0284c7;
+      border-color: #38bdf8;
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+    }
+    .type-btn:hover:not(.active) {
+      background: #1e293b;
+      border-color: #475569;
+      color: #f8fafc;
+    }
+
+    /* CSV入出力バー */
+    .csv-bar { display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #334155; flex-wrap: wrap; gap: 10px; }
+    .csv-btns { display: flex; gap: 8px; }
+    .csv-btn { background: #334155; border: 1px solid #475569; color: #f8fafc; padding: 6px 12px; font-size: 0.8rem; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .csv-btn:hover { background: #475569; }
+
+    /* ビュー切り替えタブ */
+    .view-tabs { display: flex; gap: 8px; margin-bottom: 15px; border-bottom: 2px solid #334155; padding-bottom: 8px; }
+    .tab-btn { background: #1e293b; border: 1px solid #334155; color: #94a3b8; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .tab-btn.active { background: #0284c7; color: #fff; border-color: #0284c7; }
+
+    .view-content { display: none; }
+    .view-content.active { display: block; }
+
+    /* カードビュー */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 15px; }
+    .card { background: #1e293b; border-radius: 10px; padding: 16px; border-left: 6px solid #64748b; position: relative; }
+    .card.protected { border-left-color: #38bdf8; }
+    .card.battle { border-left-color: #ef4444; background: #2c1517; animation: pulse 2s infinite; }
+    .card.lost { border-left-color: #f59e0b; background: #281f09; }
+    .card.expired { border-left-color: #64748b; opacity: 0.7; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+    
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+    .facility-name { font-weight: bold; font-size: 1.1rem; }
+    .card-header-actions { display: flex; gap: 6px; }
+    .icon-btn { background: transparent; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 0 2px; }
+    .icon-btn:hover { color: #f8fafc; }
+    
+    .tag-container { margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+    .tag { background: #334155; color: #38bdf8; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; border: 1px solid #0284c7; font-weight: bold; }
+
+    .status-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; margin-bottom: 8px; }
+    .protected .status-badge { background: #0284c7; color: #fff; }
+    .battle .status-badge { background: #dc2626; color: #fff; }
+    .lost .status-badge { background: #d97706; color: #fff; }
+    .expired .status-badge { background: #475569; color: #cbd5e1; }
+
+    .timer { font-size: 1.1rem; font-weight: bold; margin: 6px 0; color: #f1f5f9; }
+    .detail-time { font-size: 0.78rem; color: #94a3b8; line-height: 1.4; }
+    .quick-actions { margin-top: 10px; padding-top: 8px; border-top: 1px solid #334155; display: flex; gap: 4px; }
+    .action-btn { flex: 1; background: #334155; border: none; color: #f8fafc; padding: 6px 2px; font-size: 0.7rem; border-radius: 4px; cursor: pointer; text-align: center; }
+    .action-btn:hover { background: #475569; }
+    .action-btn.auto { background: #0f766e; color: #99f6e4; }
+    .action-btn.auto:hover { background: #115e59; }
+    .action-btn.danger { background: #7f1d1d; color: #fca5a5; }
+    .action-btn.danger:hover { background: #991b1b; }
+
+    /* ガントチャートビュー */
+    .gantt-container { background: #1e293b; padding: 15px; border-radius: 10px; overflow-x: auto; }
+    .gantt-row { display: flex; align-items: center; margin-bottom: 12px; height: 36px; }
+    .gantt-label { width: 140px; font-size: 0.85rem; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
+    .gantt-track { flex: 1; height: 24px; background: #0f172a; border-radius: 4px; position: relative; overflow: hidden; }
+    .gantt-bar { position: absolute; height: 100%; border-radius: 3px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; white-space: nowrap; overflow: hidden; }
+    .gantt-bar.protected { background: #0284c7; }
+    .gantt-bar.battle { background: #dc2626; }
+    .gantt-bar.lost { background: #d97706; }
+    .gantt-scale { display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b; margin-top: 10px; padding-left: 140px; }
+
+    /* カレンダービュー */
+    .calendar-container { background: #1e293b; padding: 15px; border-radius: 10px; }
+    .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal-day-head { text-align: center; font-size: 0.8rem; font-weight: bold; color: #64748b; padding: 6px 0; }
+    .cal-day { background: #0f172a; min-height: 90px; padding: 4px; border-radius: 4px; font-size: 0.75rem; }
+    .cal-day.other-month { opacity: 0.3; }
+    .cal-date { font-weight: bold; color: #94a3b8; margin-bottom: 4px; }
+    .cal-event { padding: 2px 4px; border-radius: 3px; font-size: 0.7rem; margin-bottom: 2px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+    .cal-event.protected { background: #0369a1; color: #e0f2fe; }
+    .cal-event.battle { background: #991b1b; color: #fee2e2; }
+    .cal-event.lost { background: #b45309; color: #fef3c7; }
+
+    .section-title { font-size: 1.1rem; font-weight: bold; color: #38bdf8; margin: 25px 0 10px 0; }
+
+    /* カラー指定用スタイルテーマ */
+    .color-purple { background-color: #7e22ce !important; color: #f3e8ff !important; border-left: 3px solid #c084fc !important; }
+    .color-blue   { background-color: #1d4ed8 !important; color: #dbeafe !important; border-left: 3px solid #60a5fa !important; }
+    .color-green  { background-color: #15803d !important; color: #dcfce7 !important; border-left: 3px solid #4ade80 !important; }
+    .color-yellow { background-color: #a16207 !important; color: #fef9c3 !important; border-left: 3px solid #facc15 !important; }
+    .color-red    { background-color: #b91c1c !important; color: #fee2e2 !important; border-left: 3px solid #f87171 !important; }
+    .color-orange { background-color: #c2410c !important; color: #ffedd5 !important; border-left: 3px solid #fb923c !important; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>3345【MOG】ステ＆イベント統合管理ツール</h1>
+
+  <!-- CSV入出力 ツールバー -->
+  <div class="csv-bar">
+    <span style="font-size:0.85rem; color:#94a3b8; font-weight:bold;">データ共有 / バックアップ</span>
+    <div class="csv-btns">
+      <button class="csv-btn" onclick="exportCSV()">📥 CSVエクスポート</button>
+      <button class="csv-btn" onclick="document.getElementById('csvFileInput').click()">📤 CSVインポート</button>
+      <input type="file" id="csvFileInput" accept=".csv" style="display:none;" onchange="importCSV(event)">
+    </div>
+  </div>
+
+  <!-- 登録・編集フォーム -->
+  <div class="form-card">
+    <div class="form-title" id="formTitle">
+      <span>新規データの追加</span>
+    </div>
+
+    <!-- 登録タイプの切替（ボタン型UI） -->
+    <div class="type-selector">
+      <label class="type-btn active" id="btnFacility">
+        <input type="radio" name="entryType" value="facility" checked onchange="toggleFormFields()">
+        🏰 施設（工程ステーションなど）
+      </label>
+      <label class="type-btn" id="btnEvent">
+        <input type="radio" name="entryType" value="event" onchange="toggleFormFields()">
+        🎉 ゲームイベント（定期/単発）
+      </label>
+    </div>
+
+    <input type="hidden" id="editId" value="">
+    
+    <!-- 施設用フィールド -->
+    <div id="facilityFields">
+      <div class="form-row">
+        <div class="form-group">
+          <label>施設名</label>
+          <input type="text" id="facName" placeholder="例: 工程ステーション Alpha">
+        </div>
+        <div class="form-group">
+          <label>占有完了日時（秒まで指定可）</label>
+          <input type="datetime-local" id="facTime" step="1">
+        </div>
+        <div class="form-group">
+          <label>競合同盟タグ（カンマ区切り）</label>
+          <input type="text" id="facRivals" placeholder="例: AAA, BBB">
+        </div>
+      </div>
+    </div>
+
+    <!-- イベント用フィールド -->
+    <div id="eventFields" style="display:none;">
+      <div class="form-row">
+        <div class="form-group">
+          <label>イベント名</label>
+          <input type="text" id="evtName" placeholder="例: 太陽の城 争奪戦">
+        </div>
+        <div class="form-group">
+          <label>開始日時</label>
+          <input type="datetime-local" id="evtStartTime" step="1">
+        </div>
+        <div class="form-group">
+          <label>終了日時</label>
+          <input type="datetime-local" id="evtEndTime" step="1">
+        </div>
+        <div class="form-group">
+          <label>繰り返し（ループ）</label>
+          <select id="evtRepeat">
+            <option value="none">繰り返しなし（単発）</option>
+            <option value="weekly">毎週（週1回）</option>
+            <option value="biweekly">隔週（2週間に1回）</option>
+            <option value="monthly">毎月（月1回）</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>表示カラー</label>
+          <select id="evtColor">
+            <option value="purple">🟣 パープル</option>
+            <option value="blue">🔵 ブルー</option>
+            <option value="green">🟢 グリーン</option>
+            <option value="yellow">🟡 イエロー</option>
+            <option value="red">🔴 レッド</option>
+            <option value="orange">橙 オレンジ</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-group">
+      <button class="add-btn" id="saveBtn" onclick="saveData()">データを追加</button>
+      <button class="cancel-btn" id="cancelBtn" onclick="resetForm()">キャンセル</button>
+    </div>
+  </div>
+
+  <!-- ビュー切り替えタブ -->
+  <div class="view-tabs">
+    <button class="tab-btn active" onclick="switchView('card')">📱 カード一覧</button>
+    <button class="tab-btn" onclick="switchView('gantt')">📊 ガントチャート</button>
+    <button class="tab-btn" onclick="switchView('calendar')">📅 カレンダー</button>
+  </div>
+
+  <!-- ビュー領域 -->
+  <div id="cardView" class="view-content active">
+    <div class="filter-bar" style="background:#1e293b; padding:10px 15px; border-radius:8px; margin-bottom:15px;">
+      <label style="font-size:0.85rem; color:#94a3b8;">競合同盟で絞り込み: </label>
+      <select id="rivalFilter" onchange="renderCardView()" style="width:auto; display:inline-block;">
+        <option value="">すべて表示</option>
+      </select>
+    </div>
+
+    <div class="section-title">🏰 工程ステーション・施設（争奪完了の早い順）</div>
+    <div id="facilityGrid" class="grid"></div>
+
+    <div class="section-title">🎉 登録済みイベント</div>
+    <div id="eventGrid" class="grid"></div>
+  </div>
+
+  <div id="ganttView" class="view-content">
+    <div class="gantt-container">
+      <div id="ganttRows"></div>
+      <div class="gantt-scale" id="ganttScale"></div>
+    </div>
+  </div>
+
+  <div id="calendarView" class="view-content">
+    <div class="calendar-container">
+      <div class="calendar-header">
+        <button class="action-btn" style="max-width:80px;" onclick="changeMonth(-1)">◀ 前月</button>
+        <span id="calMonthTitle" style="font-weight:bold; font-size:1.1rem;"></span>
+        <button class="action-btn" style="max-width:80px;" onclick="changeMonth(1)">次月 ▶</button>
+      </div>
+      <div class="calendar-grid" id="calendarGrid"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let facilities = JSON.parse(localStorage.getItem('hw_facilities_v8') || '[]');
+  let events = JSON.parse(localStorage.getItem('hw_events_v2') || '[]');
+  let currentCalDate = new Date();
+
+  const PROTECT_MS = 72 * 60 * 60 * 1000; // 72時間
+  const BATTLE_MS = 24 * 60 * 60 * 1000;  // 24時間
+  const TOTAL_CYCLE_MS = PROTECT_MS + BATTLE_MS; // 96時間 (1サイクル)
+
+  document.addEventListener('DOMContentLoaded', () => {
+    resetForm();
+    sortFacilities();
+    renderAll();
+    setInterval(renderAll, 1000); // 1秒更新
+  });
+
+  // 施設データのソート処理（争奪完了日時が早い順）
+  function sortFacilities() {
+    facilities.sort((a, b) => {
+      const finishA = a.captureTime + TOTAL_CYCLE_MS;
+      const finishB = b.captureTime + TOTAL_CYCLE_MS;
+      return finishA - finishB;
+    });
+  }
+
+  function toggleFormFields() {
+    const type = document.querySelector('input[name="entryType"]:checked').value;
+    const btnFacility = document.getElementById('btnFacility');
+    const btnEvent = document.getElementById('btnEvent');
+
+    if (type === 'facility') {
+      document.getElementById('facilityFields').style.display = 'block';
+      document.getElementById('eventFields').style.display = 'none';
+      btnFacility.classList.add('active');
+      btnEvent.classList.remove('active');
+    } else {
+      document.getElementById('facilityFields').style.display = 'none';
+      document.getElementById('eventFields').style.display = 'block';
+      btnFacility.classList.remove('active');
+      btnEvent.classList.add('active');
+    }
+  }
+
+  function switchView(viewName) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.view-content').forEach(v => v.classList.remove('active'));
+    
+    event.target.classList.add('active');
+    document.getElementById(viewName + 'View').classList.add('active');
+    renderAll();
+  }
+
+  /* --- データの保存・更新 --- */
+  function saveData() {
+    const type = document.querySelector('input[name="entryType"]:checked').value;
+    const editId = document.getElementById('editId').value;
+
+    if (type === 'facility') {
+      const name = document.getElementById('facName').value.trim();
+      const time = document.getElementById('facTime').value;
+      const rivalsInput = document.getElementById('facRivals').value;
+
+      if (!name || !time) return alert('施設名と占有日時を入力してください。');
+      const captureTime = new Date(time).getTime();
+      const rivals = rivalsInput ? rivalsInput.split(',').map(r => r.trim()).filter(r => r) : [];
+
+      if (editId) {
+        const idx = facilities.findIndex(f => f.id == editId);
+        if (idx !== -1) facilities[idx] = { ...facilities[idx], name, captureTime, rivals };
+      } else {
+        facilities.push({ id: Date.now(), name, captureTime, rivals, isLost: false });
+      }
+      
+      sortFacilities();
+      localStorage.setItem('hw_facilities_v8', JSON.stringify(facilities));
+    } else {
+      const name = document.getElementById('evtName').value.trim();
+      const startTime = document.getElementById('evtStartTime').value;
+      const endTime = document.getElementById('evtEndTime').value;
+      const repeat = document.getElementById('evtRepeat').value;
+      const color = document.getElementById('evtColor').value;
+
+      if (!name || !startTime || !endTime) return alert('イベント名・開始・終了日時を入力してください。');
+      const startMs = new Date(startTime).getTime();
+      const endMs = new Date(endTime).getTime();
+
+      if (endMs <= startMs) return alert('終了日時は開始日時より後に設定してください。');
+
+      if (editId) {
+        const idx = events.findIndex(e => e.id == editId);
+        if (idx !== -1) events[idx] = { ...events[idx], name, startMs, endMs, repeat, color };
+      } else {
+        events.push({ id: Date.now(), name, startMs, endMs, repeat, color });
+      }
+      localStorage.setItem('hw_events_v2', JSON.stringify(events));
+    }
+
+    resetForm();
+    renderAll();
+  }
+
+  function editFacility(id) {
+    const f = facilities.find(i => i.id === id);
+    if (!f) return;
+    document.querySelector('input[name="entryType"][value="facility"]').checked = true;
+    toggleFormFields();
+
+    document.getElementById('editId').value = f.id;
+    document.getElementById('facName').value = f.name;
+    document.getElementById('facTime').value = formatToISO(f.captureTime);
+    document.getElementById('facRivals').value = f.rivals ? f.rivals.join(', ') : '';
+
+    document.getElementById('formTitle').innerText = `施設の編集: ${f.name}`;
+    document.getElementById('saveBtn').innerText = '保存';
+    document.getElementById('cancelBtn').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function editEvent(id) {
+    const e = events.find(i => i.id === id);
+    if (!e) return;
+    document.querySelector('input[name="entryType"][value="event"]').checked = true;
+    toggleFormFields();
+
+    document.getElementById('editId').value = e.id;
+    document.getElementById('evtName').value = e.name;
+    document.getElementById('evtStartTime').value = formatToISO(e.startMs);
+    document.getElementById('evtEndTime').value = formatToISO(e.endMs);
+    document.getElementById('evtRepeat').value = e.repeat;
+    document.getElementById('evtColor').value = e.color || 'purple';
+
+    document.getElementById('formTitle').innerText = `イベントの編集: ${e.name}`;
+    document.getElementById('saveBtn').innerText = '保存';
+    document.getElementById('cancelBtn').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function resetForm() {
+    document.getElementById('editId').value = '';
+    document.getElementById('facName').value = '';
+    document.getElementById('facRivals').value = '';
+    document.getElementById('evtName').value = '';
+
+    const now = new Date();
+    const nowIso = formatToISO(now.getTime());
+    const endIso = formatToISO(now.getTime() + (2 * 60 * 60 * 1000));
+
+    document.getElementById('facTime').value = nowIso;
+    document.getElementById('evtStartTime').value = nowIso;
+    document.getElementById('evtEndTime').value = endIso;
+
+    document.getElementById('formTitle').innerText = '新規データの追加';
+    document.getElementById('saveBtn').innerText = 'データを追加';
+    document.getElementById('cancelBtn').style.display = 'none';
+  }
+
+  function deleteFacility(id) {
+    if (confirm('施設を削除しますか？')) {
+      facilities = facilities.filter(f => f.id !== id);
+      sortFacilities();
+      localStorage.setItem('hw_facilities_v8', JSON.stringify(facilities));
+      renderAll();
+    }
+  }
+
+  function deleteEvent(id) {
+    if (confirm('イベントを削除しますか？')) {
+      events = events.filter(e => e.id !== id);
+      localStorage.setItem('hw_events_v2', JSON.stringify(events));
+      renderAll();
+    }
+  }
+
+  // 「今占有」（現在時刻にリセット）
+  function resetToNow(id) {
+    const f = facilities.find(i => i.id === id);
+    if (f) {
+      f.captureTime = new Date().getTime();
+      f.isLost = false;
+      sortFacilities();
+      localStorage.setItem('hw_facilities_v8', JSON.stringify(facilities));
+      renderAll();
+    }
+  }
+
+  // 「自動更新」（+96時間）
+  function autoAdvance(id) {
+    const f = facilities.find(i => i.id === id);
+    if (f) {
+      f.captureTime = f.captureTime + TOTAL_CYCLE_MS;
+      f.isLost = false;
+      sortFacilities();
+      localStorage.setItem('hw_facilities_v8', JSON.stringify(facilities));
+      renderAll();
+    }
+  }
+
+  // 「競合に奪われた」
+  function markAsLost(id) {
+    const f = facilities.find(i => i.id === id);
+    if (f) {
+      f.captureTime = new Date().getTime();
+      f.isLost = true;
+      sortFacilities();
+      localStorage.setItem('hw_facilities_v8', JSON.stringify(facilities));
+      renderAll();
+    }
+  }
+
+  function renderAll() {
+    updateRivalFilterOptions();
+    renderCardView();
+    renderGanttView();
+    renderCalendarView();
+  }
+
+  function updateRivalFilterOptions() {
+    const select = document.getElementById('rivalFilter');
+    const currentVal = select.value;
+    const allRivals = new Set();
+    facilities.forEach(f => { if (f.rivals) f.rivals.forEach(r => allRivals.add(r)); });
+
+    let optionsHtml = '<option value="">すべて表示</option>';
+    allRivals.forEach(r => {
+      optionsHtml += `<option value="${r}" ${currentVal === r ? 'selected' : ''}>[${r}] 競合同盟</option>`;
+    });
+    select.innerHTML = optionsHtml;
+  }
+
+  /* --- 1. カードビュー描画 --- */
+  function renderCardView() {
+    const grid = document.getElementById('facilityGrid');
+    const evtGrid = document.getElementById('eventGrid');
+    const rivalFilter = document.getElementById('rivalFilter').value;
+
+    let targetFacilities = facilities;
+    if (rivalFilter) {
+      targetFacilities = facilities.filter(f => f.rivals && f.rivals.includes(rivalFilter));
+    }
+
+    const now = new Date().getTime();
+
+    if (targetFacilities.length === 0) {
+      grid.innerHTML = '<div style="color:#64748b;">登録された施設がありません。</div>';
+    } else {
+      grid.innerHTML = targetFacilities.map(f => {
+        const bStart = f.captureTime + PROTECT_MS;
+        const bEnd = bStart + BATTLE_MS;
+        let statusClass = '', statusText = '', timerText = '', targetTimeText = '';
+
+        if (f.isLost) {
+          if (now < bStart) {
+            statusClass = 'lost'; statusText = '⚠️ 競合占有中（敵バリア）';
+            timerText = `奪還可能まで: ${formatDiff(bStart - now)}`;
+            targetTimeText = `次回奪還可能: ${formatFullDate(bStart)}`;
+          } else if (now >= bStart && now < bEnd) {
+            statusClass = 'battle'; statusText = '⚔️ 奪還チャンス到来！';
+            timerText = `争奪終了まで: ${formatDiff(bEnd - now)}`;
+            targetTimeText = `争奪終了: ${formatFullDate(bEnd)}`;
+          } else {
+            statusClass = 'expired'; statusText = '⚠️ 争奪終了（要更新）';
+            timerText = '争奪期間終了'; targetTimeText = `最終争奪: ${formatFullDate(bEnd)}`;
+          }
+        } else {
+          if (now < bStart) {
+            statusClass = 'protected'; statusText = '🛡️ バリア保護中';
+            timerText = `防衛戦まで: ${formatDiff(bStart - now)}`;
+            targetTimeText = `争奪開始: ${formatFullDate(bStart)}`;
+          } else if (now >= bStart && now < bEnd) {
+            statusClass = 'battle'; statusText = '⚔️ 争奪可能時間';
+            timerText = `終了まで: ${formatDiff(bEnd - now)}`;
+            targetTimeText = `争奪終了: ${formatFullDate(bEnd)}`;
+          } else {
+            statusClass = 'expired'; statusText = '⚠️ 争奪終了（要更新）';
+            timerText = '争奪期間終了'; targetTimeText = `最終争奪: ${formatFullDate(bEnd)}`;
+          }
+        }
+
+        const rivalsHtml = (f.rivals && f.rivals.length > 0) 
+          ? `<div class="tag-container">${f.rivals.map(r => `<span class="tag">${r}</span>`).join('')}</div>` : '';
+
+        return `
+          <div class="card ${statusClass}">
+            <div class="card-header">
+              <span class="facility-name">${f.name}</span>
+              <div class="card-header-actions">
+                <button class="icon-btn" onclick="editFacility(${f.id})">✏️</button>
+                <button class="icon-btn" onclick="deleteFacility(${f.id})">✕</button>
+              </div>
+            </div>
+            ${rivalsHtml}
+            <span class="status-badge">${statusText}</span>
+            <div class="timer">${timerText}</div>
+            <div class="detail-time">
+              ${targetTimeText}<br>
+              争奪完了日時: <span style="color:#38bdf8; font-weight:bold;">${formatFullDate(bEnd)}</span><br>
+              占有開始時刻: ${formatFullDate(f.captureTime)}
+            </div>
+            <div class="quick-actions">
+              <button class="action-btn" onclick="resetToNow(${f.id})" title="時刻を現在時刻に変更">占有NOW</button>
+              <button class="action-btn auto" onclick="autoAdvance(${f.id})" title="+96時間スライドして次周期へ">🔄 自動更新</button>
+              <button class="action-btn danger" onclick="markAsLost(${f.id})" title="敵同盟に奪われた状態に切替">競合奪取</button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    if (events.length === 0) {
+      evtGrid.innerHTML = '<div style="color:#64748b;">登録されたイベントがありません。</div>';
+    } else {
+      evtGrid.innerHTML = events.map(e => {
+        const repeatLabels = { none: '単発', weekly: '毎週', biweekly: '隔週', monthly: '毎月' };
+        const colorClass = `color-${e.color || 'purple'}`;
+        return `
+          <div class="card ${colorClass}">
+            <div class="card-header">
+              <span class="facility-name">${e.name}</span>
+              <div class="card-header-actions">
+                <button class="icon-btn" onclick="editEvent(${e.id})">✏️</button>
+                <button class="icon-btn" onclick="deleteEvent(${e.id})">✕</button>
+              </div>
+            </div>
+            <div class="tag-container"><span class="tag" style="border-color:currentColor; color:currentColor;">ループ: ${repeatLabels[e.repeat]}</span></div>
+            <span class="status-badge" style="background:rgba(0,0,0,0.3);">🎉 ゲームイベント</span>
+            <div class="detail-time" style="margin-top:8px;">
+              開始: ${formatFullDate(e.startMs)}<br>
+              終了: ${formatFullDate(e.endMs)}
+            </div>
+          </div>`;
+      }).join('');
+    }
+  }
+
+  /* --- 2. ガントチャート描画 --- */
+  function renderGanttView() {
+    const container = document.getElementById('ganttRows');
+    const scale = document.getElementById('ganttScale');
+    const now = new Date().getTime();
+    const rangeStart = now - (24 * 60 * 60 * 1000);
+    const rangeEnd = now + (6 * 24 * 60 * 60 * 1000);
+    const totalDuration = rangeEnd - rangeStart;
+
+    scale.innerHTML = `<span>昨日</span><span>今日</span><span>2日後</span><span>4日後</span><span>6日後</span>`;
+
+    let html = facilities.map(f => {
+      const pStart = f.captureTime;
+      const bStart = pStart + PROTECT_MS;
+      const pLeft = Math.max(0, Math.min(100, ((pStart - rangeStart) / totalDuration) * 100));
+      const pWidth = Math.max(0, Math.min(100 - pLeft, ((PROTECT_MS) / totalDuration) * 100));
+      const bLeft = Math.max(0, Math.min(100, ((bStart - rangeStart) / totalDuration) * 100));
+      const bWidth = Math.max(0, Math.min(100 - bLeft, ((BATTLE_MS) / totalDuration) * 100));
+
+      return `
+        <div class="gantt-row">
+          <div class="gantt-label" title="${f.name}">${f.name}</div>
+          <div class="gantt-track">
+            ${pWidth > 0 ? `<div class="gantt-bar ${f.isLost ? 'lost' : 'protected'}" style="left:${pLeft}%; width:${pWidth}%;">${f.isLost ? '敵バリア' : 'バリア'}</div>` : ''}
+            ${bWidth > 0 ? `<div class="gantt-bar battle" style="left:${bLeft}%; width:${bWidth}%;">争奪</div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+
+    html += events.map(e => {
+      const eLeft = Math.max(0, Math.min(100, ((e.startMs - rangeStart) / totalDuration) * 100));
+      const eWidth = Math.max(0, Math.min(100 - eLeft, ((e.endMs - e.startMs) / totalDuration) * 100));
+      const colorClass = `color-${e.color || 'purple'}`;
+      return `
+        <div class="gantt-row">
+          <div class="gantt-label" title="${e.name}">🎉 ${e.name}</div>
+          <div class="gantt-track">
+            ${eWidth > 0 ? `<div class="gantt-bar ${colorClass}" style="left:${eLeft}%; width:${eWidth}%;">イベント期間</div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+
+    container.innerHTML = html || '<div style="color:#64748b; text-align:center;">データがありません</div>';
+  }
+
+  /* --- 3. カレンダー描画 --- */
+  function changeMonth(delta) {
+    currentCalDate.setMonth(currentCalDate.getMonth() + delta);
+    renderCalendarView();
+  }
+
+  function renderCalendarView() {
+    const grid = document.getElementById('calendarGrid');
+    const title = document.getElementById('calMonthTitle');
+    
+    const year = currentCalDate.getFullYear();
+    const month = currentCalDate.getMonth();
+    title.innerText = `${year}年 ${month + 1}月`;
+
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startDayOfWeek = firstDay.getDay();
+
+    let html = ['日','月','火','水','木','金','土'].map(d => `<div class="cal-day-head">${d}</div>`).join('');
+
+    for (let i = 0; i < startDayOfWeek; i++) {
+      html += `<div class="cal-day other-month"></div>`;
+    }
+
+    for (let date = 1; date <= lastDay.getDate(); date++) {
+      const cellDate = new Date(year, month, date);
+      const cellStart = cellDate.getTime();
+      const cellEnd = cellStart + (24 * 60 * 60 * 1000);
+
+      let eventsHtml = '';
+
+      facilities.forEach(f => {
+        const bStart = f.captureTime + PROTECT_MS;
+        const rivalText = f.rivals && f.rivals.length > 0 ? `[${f.rivals.join('/')}]` : '';
+
+        if (bStart >= cellStart && bStart < cellEnd) {
+          const timeStr = formatShortTime(bStart);
+          const txt = f.isLost ? `⚔️ 奪還 ${timeStr} ${f.name}` : `⚔️ 防衛 ${timeStr} ${f.name}`;
+          eventsHtml += `<div class="cal-event battle">${txt} ${rivalText}</div>`;
+        } else if (f.captureTime >= cellStart && f.captureTime < cellEnd) {
+          const timeStr = formatShortTime(f.captureTime);
+          const icon = f.isLost ? '⚠️ 奪取' : '🛡️ 占有';
+          eventsHtml += `<div class="cal-event ${f.isLost ? 'lost' : 'protected'}">${icon} ${timeStr} ${f.name}</div>`;
+        }
+      });
+
+      events.forEach(e => {
+        if (isEventActiveOnDate(e, cellDate)) {
+          const colorClass = `color-${e.color || 'purple'}`;
+          eventsHtml += `<div class="cal-event ${colorClass}" title="${e.name}">🎉 ${e.name}</div>`;
+        }
+      });
+
+      html += `<div class="cal-day"><div class="cal-date">${date}</div>${eventsHtml}</div>`;
+    }
+
+    grid.innerHTML = html;
+  }
+
+  function isEventActiveOnDate(evt, cellDate) {
+    const targetDayStart = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate()).getTime();
+    const targetDayEnd = targetDayStart + (24 * 60 * 60 * 1000);
+
+    const duration = evt.endMs - evt.startMs;
+    const originStart = evt.startMs;
+
+    if (evt.repeat === 'none') {
+      return (evt.startMs < targetDayEnd && evt.endMs >= targetDayStart);
+    } 
+    else if (evt.repeat === 'weekly' || evt.repeat === 'biweekly') {
+      const intervalDays = (evt.repeat === 'biweekly') ? 14 : 7;
+      const LOOP_MS = intervalDays * 24 * 60 * 60 * 1000;
+
+      if (targetDayEnd < originStart) return false;
+      const diffCycles = Math.floor((targetDayStart - originStart) / LOOP_MS);
+      
+      for (let c = Math.max(0, diffCycles - 1); c <= diffCycles + 1; c++) {
+        const currentStart = originStart + (c * LOOP_MS);
+        const currentEnd = currentStart + duration;
+        if (currentStart < targetDayEnd && currentEnd >= targetDayStart) return true;
+      }
+    } 
+    else if (evt.repeat === 'monthly') {
+      const originDate = new Date(originStart);
+      const currentMonthEventStart = new Date(cellDate.getFullYear(), cellDate.getMonth(), originDate.getDate(), originDate.getHours(), originDate.getMinutes(), originDate.getSeconds()).getTime();
+      const currentMonthEventEnd = currentMonthEventStart + duration;
+
+      if (currentMonthEventStart < targetDayEnd && currentMonthEventEnd >= targetDayStart) return true;
+    }
+
+    return false;
+  }
+
+  /* --- 4. CSV エクスポート & インポート（競合同盟タグ対応強化） --- */
+  function exportCSV() {
+    let csvContent = "\uFEFF"; // UTF-8 BOM
+    csvContent += "Type,ID,Name,Time1,Time2,Rivals_OR_Repeat,IsLost_OR_Color\n";
+
+    facilities.forEach(f => {
+      const rivalsStr = f.rivals ? f.rivals.join('|') : '';
+      csvContent += `facility,${f.id},"${f.name}",${f.captureTime},,"${rivalsStr}",${f.isLost}\n`;
+    });
+
+    events.forEach(e => {
+      csvContent += `event,${e.id},"${e.name}",${e.startMs},${e.endMs},${e.repeat},${e.color || 'purple'}\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `hw_management_data_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function parseCSVLine(line) {
+    const result = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        inQuotes = !inQuotes;
+      } else if (c === ',' && !inQuotes) {
+        result.push(cur.trim());
+        cur = '';
+      } else {
+        cur += c;
+      }
+    }
+    result.push(cur.trim());
+    return result;
+  }
+
+  function importCSV(evt) {
+    const file = evt.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const text = e.target.result;
+      const lines = text.split('\n');
+
+      let newFacs = [];
+      let newEvts = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const cleanCols = parseCSVLine(line).map(c => c.replace(/^"|"$/g, ''));
+        if (cleanCols.length < 4) continue;
+
+        const type = cleanCols[0];
+
+        if (type === 'facility') {
+          // タグ（競合同盟）の復元（パイプ | 区切り または カンマ区切りに対応）
+          const rawRivals = cleanCols[5] || '';
+          const rivalsArr = rawRivals ? rawRivals.split(/[|,-]/).map(r => r.trim()).filter(r => r) : [];
+
+          newFacs.push({
+            id: Number(cleanCols[1]) || Date.now() + Math.random(),
+            name: cleanCols[2],
+            captureTime: Number(cleanCols[3]),
+            rivals: rivalsArr,
+            isLost: cleanCols[6] === 'true'
+          });
+        } else if (type === 'event') {
+          newEvts.push({
+            id: Number(cleanCols[1]) || Date.now() + Math.random(),
+            name: cleanCols[2],
+            startMs: Number(cleanCols[3]),
+            endMs: Number(cleanCols[4]),
+            repeat: cleanCols[5] || 'none',
+            color: cleanCols[6] || 'purple'
+          });
+        }
+      }
+
+      if (confirm(`施設 ${newFacs.length}件、イベント ${newEvts.length}件を取り込みますか？（既存データは上書きされます）`)) {
+        facilities = newFacs;
+        events = newEvts;
+        sortFacilities();
+        localStorage.setItem('hw_facilities_v8', JSON.stringify(facilities));
+        localStorage.setItem('hw_events_v2', JSON.stringify(events));
+        renderAll();
+        alert('競合同盟タグを含むデータを正常に取り込みました。');
+      }
+    };
+    reader.readAsText(file);
+    evt.target.value = '';
+  }
+
+  /* --- ユーティリティ --- */
+  function formatToISO(ms) {
+    const d = new Date(ms);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 19);
+  }
+
+  function formatDiff(ms) {
+    if (ms <= 0) return "00:00:00";
+    const hours = Math.floor(ms / (1000 * 60 * 60));
+    const mins = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+    const secs = Math.floor((ms % (1000 * 60)) / 1000);
+    return `${hours}時間 ${String(mins).padStart(2, '0')}分 ${String(secs).padStart(2, '0')}秒`;
+  }
+
+  function formatFullDate(ms) {
+    const d = new Date(ms);
+    return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+  }
+
+  function formatShortTime(ms) {
+    const d = new Date(ms);
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+</script>
+
+</body>
+</html>

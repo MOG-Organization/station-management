@@ -21,7 +21,7 @@
     button.add-btn:hover { background: #0369a1; }
     button.cancel-btn { flex: 1; background: #475569; color: white; border: none; padding: 12px; font-weight: bold; border-radius: 6px; cursor: pointer; display: none; }
 
-    /* モード切り替えボタン（UI拡張） */
+    /* モード切り替えボタン */
     .type-selector { display: flex; gap: 10px; margin-bottom: 20px; width: 100%; flex-wrap: wrap; }
     .type-btn {
       flex: 1;
@@ -43,18 +43,13 @@
       box-sizing: border-box;
     }
     .type-btn input[type="radio"] { display: none; }
-    
     .type-btn.active {
       background: #0284c7;
       border-color: #38bdf8;
       color: #ffffff;
       box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
     }
-    .type-btn:hover:not(.active) {
-      background: #1e293b;
-      border-color: #475569;
-      color: #f8fafc;
-    }
+    .type-btn:hover:not(.active) { background: #1e293b; border-color: #475569; color: #f8fafc; }
 
     /* CSV入出力バー */
     .csv-bar { display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #334155; flex-wrap: wrap; gap: 10px; }
@@ -160,7 +155,6 @@
       <span>新規データの追加</span>
     </div>
 
-    <!-- 登録タイプの切替（ボタン型UI） -->
     <div class="type-selector">
       <label class="type-btn active" id="btnFacility">
         <input type="radio" name="entryType" value="facility" checked onchange="toggleFormFields()">
@@ -224,8 +218,14 @@
             <option value="green">🟢 グリーン</option>
             <option value="yellow">🟡 イエロー</option>
             <option value="red">🔴 レッド</option>
-            <option value="orange">橙 オレンジ</option>
+            <option value="orange">🟠 オレンジ</option>
           </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="display:flex; align-items:center; gap:8px; margin-top:5px;">
+          <input type="checkbox" id="evtVisible" checked style="width:auto; cursor:pointer;">
+          <label for="evtVisible" style="margin:0; cursor:pointer; font-weight:bold; color:#f8fafc;">ガントチャート・カレンダーに表示する</label>
         </div>
       </div>
     </div>
@@ -239,7 +239,7 @@
   <!-- ビュー切り替えタブ -->
   <div class="view-tabs">
     <button class="tab-btn active" onclick="switchView('card')">📱 カード一覧</button>
-    <button class="tab-btn" onclick="switchView('gantt')">📊 ガントチャート</button>
+    <button class="tab-btn" onclick="switchView('gantt')">📊 ガントチャート（現在〜7日間）</button>
     <button class="tab-btn" onclick="switchView('calendar')">📅 カレンダー</button>
   </div>
 
@@ -280,12 +280,12 @@
 
 <script>
   let facilities = JSON.parse(localStorage.getItem('hw_facilities_v8') || '[]');
-  let events = JSON.parse(localStorage.getItem('hw_events_v2') || '[]');
+  let events = JSON.parse(localStorage.getItem('hw_events_v3') || '[]');
   let currentCalDate = new Date();
 
   const PROTECT_MS = 72 * 60 * 60 * 1000; // 72時間
   const BATTLE_MS = 24 * 60 * 60 * 1000;  // 24時間
-  const TOTAL_CYCLE_MS = PROTECT_MS + BATTLE_MS; // 96時間 (1サイクル)
+  const TOTAL_CYCLE_MS = PROTECT_MS + BATTLE_MS; // 96時間
 
   document.addEventListener('DOMContentLoaded', () => {
     resetForm();
@@ -294,7 +294,6 @@
     setInterval(renderAll, 1000); // 1秒更新
   });
 
-  // 施設データのソート処理（争奪完了日時が早い順）
   function sortFacilities() {
     facilities.sort((a, b) => {
       const finishA = a.captureTime + TOTAL_CYCLE_MS;
@@ -359,6 +358,7 @@
       const endTime = document.getElementById('evtEndTime').value;
       const repeat = document.getElementById('evtRepeat').value;
       const color = document.getElementById('evtColor').value;
+      const visible = document.getElementById('evtVisible').checked;
 
       if (!name || !startTime || !endTime) return alert('イベント名・開始・終了日時を入力してください。');
       const startMs = new Date(startTime).getTime();
@@ -368,11 +368,11 @@
 
       if (editId) {
         const idx = events.findIndex(e => e.id == editId);
-        if (idx !== -1) events[idx] = { ...events[idx], name, startMs, endMs, repeat, color };
+        if (idx !== -1) events[idx] = { ...events[idx], name, startMs, endMs, repeat, color, visible };
       } else {
-        events.push({ id: Date.now(), name, startMs, endMs, repeat, color });
+        events.push({ id: Date.now(), name, startMs, endMs, repeat, color, visible });
       }
-      localStorage.setItem('hw_events_v2', JSON.stringify(events));
+      localStorage.setItem('hw_events_v3', JSON.stringify(events));
     }
 
     resetForm();
@@ -408,11 +408,21 @@
     document.getElementById('evtEndTime').value = formatToISO(e.endMs);
     document.getElementById('evtRepeat').value = e.repeat;
     document.getElementById('evtColor').value = e.color || 'purple';
+    document.getElementById('evtVisible').checked = e.visible !== false;
 
     document.getElementById('formTitle').innerText = `イベントの編集: ${e.name}`;
     document.getElementById('saveBtn').innerText = '保存';
     document.getElementById('cancelBtn').style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function toggleEventVisibility(id) {
+    const e = events.find(i => i.id === id);
+    if (e) {
+      e.visible = !(e.visible !== false);
+      localStorage.setItem('hw_events_v3', JSON.stringify(events));
+      renderAll();
+    }
   }
 
   function resetForm() {
@@ -428,6 +438,7 @@
     document.getElementById('facTime').value = nowIso;
     document.getElementById('evtStartTime').value = nowIso;
     document.getElementById('evtEndTime').value = endIso;
+    document.getElementById('evtVisible').checked = true;
 
     document.getElementById('formTitle').innerText = '新規データの追加';
     document.getElementById('saveBtn').innerText = 'データを追加';
@@ -446,12 +457,11 @@
   function deleteEvent(id) {
     if (confirm('イベントを削除しますか？')) {
       events = events.filter(e => e.id !== id);
-      localStorage.setItem('hw_events_v2', JSON.stringify(events));
+      localStorage.setItem('hw_events_v3', JSON.stringify(events));
       renderAll();
     }
   }
 
-  // 「今占有」（現在時刻にリセット）
   function resetToNow(id) {
     const f = facilities.find(i => i.id === id);
     if (f) {
@@ -463,7 +473,6 @@
     }
   }
 
-  // 「自動更新」（+96時間）
   function autoAdvance(id) {
     const f = facilities.find(i => i.id === id);
     if (f) {
@@ -475,7 +484,6 @@
     }
   }
 
-  // 「競合に奪われた」
   function markAsLost(id) {
     const f = facilities.find(i => i.id === id);
     if (f) {
@@ -591,8 +599,12 @@
       evtGrid.innerHTML = events.map(e => {
         const repeatLabels = { none: '単発', weekly: '毎週', biweekly: '隔週', monthly: '毎月' };
         const colorClass = `color-${e.color || 'purple'}`;
+        const isVisible = e.visible !== false;
+        const visBtnText = isVisible ? '⭕️ 表示中' : '✖️ 非表示';
+        const visStyle = isVisible ? '' : 'opacity:0.5; filter:grayscale(0.6);';
+
         return `
-          <div class="card ${colorClass}">
+          <div class="card ${colorClass}" style="${visStyle}">
             <div class="card-header">
               <span class="facility-name">${e.name}</span>
               <div class="card-header-actions">
@@ -606,27 +618,38 @@
               開始: ${formatFullDate(e.startMs)}<br>
               終了: ${formatFullDate(e.endMs)}
             </div>
+            <div class="quick-actions">
+              <button class="action-btn" onclick="toggleEventVisibility(${e.id})">${visBtnText}</button>
+            </div>
           </div>`;
       }).join('');
     }
   }
 
-  /* --- 2. ガントチャート描画 --- */
+  /* --- 2. ガントチャート描画（過去分非表示・現在時刻基準） --- */
   function renderGanttView() {
     const container = document.getElementById('ganttRows');
     const scale = document.getElementById('ganttScale');
     const now = new Date().getTime();
-    const rangeStart = now - (24 * 60 * 60 * 1000);
-    const rangeEnd = now + (6 * 24 * 60 * 60 * 1000);
+    
+    // ガントチャート範囲：現在から向こう7日間
+    const rangeStart = now; 
+    const rangeEnd = now + (7 * 24 * 60 * 60 * 1000);
     const totalDuration = rangeEnd - rangeStart;
 
-    scale.innerHTML = `<span>昨日</span><span>今日</span><span>2日後</span><span>4日後</span><span>6日後</span>`;
+    scale.innerHTML = `<span>現在（今）</span><span>1日後</span><span>3日後</span><span>5日後</span><span>7日後</span>`;
 
     let html = facilities.map(f => {
       const pStart = f.captureTime;
       const bStart = pStart + PROTECT_MS;
+      const bEnd = bStart + BATTLE_MS;
+
+      // 過去に完全に終了している施設バーはガントに描画しない
+      if (bEnd < rangeStart) return '';
+
       const pLeft = Math.max(0, Math.min(100, ((pStart - rangeStart) / totalDuration) * 100));
-      const pWidth = Math.max(0, Math.min(100 - pLeft, ((PROTECT_MS) / totalDuration) * 100));
+      const pWidth = Math.max(0, Math.min(100 - pLeft, ((PROTECT_MS - (rangeStart - pStart)) / totalDuration) * 100));
+
       const bLeft = Math.max(0, Math.min(100, ((bStart - rangeStart) / totalDuration) * 100));
       const bWidth = Math.max(0, Math.min(100 - bLeft, ((BATTLE_MS) / totalDuration) * 100));
 
@@ -640,10 +663,14 @@
         </div>`;
     }).join('');
 
-    html += events.map(e => {
+    // 表示ONのイベントのみ描画
+    html += events.filter(e => e.visible !== false).map(e => {
       const eLeft = Math.max(0, Math.min(100, ((e.startMs - rangeStart) / totalDuration) * 100));
       const eWidth = Math.max(0, Math.min(100 - eLeft, ((e.endMs - e.startMs) / totalDuration) * 100));
       const colorClass = `color-${e.color || 'purple'}`;
+
+      if (e.endMs < rangeStart && e.repeat === 'none') return '';
+
       return `
         <div class="gantt-row">
           <div class="gantt-label" title="${e.name}">🎉 ${e.name}</div>
@@ -653,7 +680,7 @@
         </div>`;
     }).join('');
 
-    container.innerHTML = html || '<div style="color:#64748b; text-align:center;">データがありません</div>';
+    container.innerHTML = html || '<div style="color:#64748b; text-align:center;">現在〜今後7日間の予定はありません</div>';
   }
 
   /* --- 3. カレンダー描画 --- */
@@ -702,7 +729,8 @@
         }
       });
 
-      events.forEach(e => {
+      // 表示ON（visible）のイベントのみカレンダー描画
+      events.filter(e => e.visible !== false).forEach(e => {
         if (isEventActiveOnDate(e, cellDate)) {
           const colorClass = `color-${e.color || 'purple'}`;
           eventsHtml += `<div class="cal-event ${colorClass}" title="${e.name}">🎉 ${e.name}</div>`;
@@ -749,18 +777,18 @@
     return false;
   }
 
-  /* --- 4. CSV エクスポート & インポート（競合同盟タグ対応強化） --- */
+  /* --- 4. CSV エクスポート & インポート --- */
   function exportCSV() {
-    let csvContent = "\uFEFF"; // UTF-8 BOM
-    csvContent += "Type,ID,Name,Time1,Time2,Rivals_OR_Repeat,IsLost_OR_Color\n";
+    let csvContent = "\uFEFF";
+    csvContent += "Type,ID,Name,Time1,Time2,Rivals_OR_Repeat,IsLost_OR_Color,Visible\n";
 
     facilities.forEach(f => {
       const rivalsStr = f.rivals ? f.rivals.join('|') : '';
-      csvContent += `facility,${f.id},"${f.name}",${f.captureTime},,"${rivalsStr}",${f.isLost}\n`;
+      csvContent += `facility,${f.id},"${f.name}",${f.captureTime},,"${rivalsStr}",${f.isLost},\n`;
     });
 
     events.forEach(e => {
-      csvContent += `event,${e.id},"${e.name}",${e.startMs},${e.endMs},${e.repeat},${e.color || 'purple'}\n`;
+      csvContent += `event,${e.id},"${e.name}",${e.startMs},${e.endMs},${e.repeat},${e.color || 'purple'},${e.visible !== false}\n`;
     });
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -814,7 +842,6 @@
         const type = cleanCols[0];
 
         if (type === 'facility') {
-          // タグ（競合同盟）の復元（パイプ | 区切り または カンマ区切りに対応）
           const rawRivals = cleanCols[5] || '';
           const rivalsArr = rawRivals ? rawRivals.split(/[|,-]/).map(r => r.trim()).filter(r => r) : [];
 
@@ -832,7 +859,8 @@
             startMs: Number(cleanCols[3]),
             endMs: Number(cleanCols[4]),
             repeat: cleanCols[5] || 'none',
-            color: cleanCols[6] || 'purple'
+            color: cleanCols[6] || 'purple',
+            visible: cleanCols[7] !== 'false'
           });
         }
       }
@@ -842,9 +870,9 @@
         events = newEvts;
         sortFacilities();
         localStorage.setItem('hw_facilities_v8', JSON.stringify(facilities));
-        localStorage.setItem('hw_events_v2', JSON.stringify(events));
+        localStorage.setItem('hw_events_v3', JSON.stringify(events));
         renderAll();
-        alert('競合同盟タグを含むデータを正常に取り込みました。');
+        alert('データを正常に取り込みました。');
       }
     };
     reader.readAsText(file);

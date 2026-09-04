@@ -91,11 +91,9 @@
 
     .timer { font-size: 1.1rem; font-weight: bold; margin: 6px 0; color: #f1f5f9; }
     .detail-time { font-size: 0.78rem; color: #94a3b8; line-height: 1.4; }
-    .quick-actions { margin-top: 10px; padding-top: 8px; border-top: 1px solid #334155; display: flex; gap: 4px; }
-    .action-btn { flex: 1; background: #334155; border: none; color: #f8fafc; padding: 6px 2px; font-size: 0.7rem; border-radius: 4px; cursor: pointer; text-align: center; }
+    .quick-actions { margin-top: 10px; padding-top: 8px; border-top: 1px solid #334155; display: flex; gap: 6px; }
+    .action-btn { flex: 1; background: #334155; border: none; color: #f8fafc; padding: 6px 2px; font-size: 0.72rem; border-radius: 4px; cursor: pointer; text-align: center; }
     .action-btn:hover { background: #475569; }
-    .action-btn.auto { background: #0f766e; color: #99f6e4; }
-    .action-btn.auto:hover { background: #115e59; }
     .action-btn.danger { background: #7f1d1d; color: #fca5a5; }
     .action-btn.danger:hover { background: #991b1b; }
 
@@ -285,14 +283,39 @@
 
   const PROTECT_MS = 72 * 60 * 60 * 1000; // 72時間
   const BATTLE_MS = 24 * 60 * 60 * 1000;  // 24時間
-  const TOTAL_CYCLE_MS = PROTECT_MS + BATTLE_MS; // 96時間
+  const TOTAL_CYCLE_MS = PROTECT_MS + BATTLE_MS; // 96時間 (1サイクル)
 
   document.addEventListener('DOMContentLoaded', () => {
     resetForm();
+    checkAndAutoAdvance(); // 自動サイクル処理（全自動）
     sortFacilities();
     renderAll();
-    setInterval(renderAll, 1000); // 1秒更新
+    setInterval(() => {
+      checkAndAutoAdvance();
+      renderAll();
+    }, 1000); // 1秒ごとにチェック＆更新
   });
+
+  // 全自動サイクル更新関数（争奪時間が過ぎたものを自動で+96時間スライド）
+  function checkAndAutoAdvance() {
+    const now = new Date().getTime();
+    let hasUpdated = false;
+
+    facilities.forEach(f => {
+      const battleEnd = f.captureTime + TOTAL_CYCLE_MS;
+      // 争奪終了時間を過ぎていれば、現在時刻を追い越すまで96時間ずつ進める
+      if (now >= battleEnd) {
+        const passedCycles = Math.floor((now - f.captureTime) / TOTAL_CYCLE_MS);
+        f.captureTime += passedCycles * TOTAL_CYCLE_MS;
+        hasUpdated = true;
+      }
+    });
+
+    if (hasUpdated) {
+      sortFacilities();
+      localStorage.setItem('hw_facilities_v8', JSON.stringify(facilities));
+    }
+  }
 
   function sortFacilities() {
     facilities.sort((a, b) => {
@@ -350,6 +373,7 @@
         facilities.push({ id: Date.now(), name, captureTime, rivals, isLost: false });
       }
       
+      checkAndAutoAdvance();
       sortFacilities();
       localStorage.setItem('hw_facilities_v8', JSON.stringify(facilities));
     } else {
@@ -473,17 +497,6 @@
     }
   }
 
-  function autoAdvance(id) {
-    const f = facilities.find(i => i.id === id);
-    if (f) {
-      f.captureTime = f.captureTime + TOTAL_CYCLE_MS;
-      f.isLost = false;
-      sortFacilities();
-      localStorage.setItem('hw_facilities_v8', JSON.stringify(facilities));
-      renderAll();
-    }
-  }
-
   function markAsLost(id) {
     const f = facilities.find(i => i.id === id);
     if (f) {
@@ -541,26 +554,20 @@
             statusClass = 'lost'; statusText = '⚠️ 競合占有中（敵バリア）';
             timerText = `奪還可能まで: ${formatDiff(bStart - now)}`;
             targetTimeText = `次回奪還可能: ${formatFullDate(bStart)}`;
-          } else if (now >= bStart && now < bEnd) {
-            statusClass = 'battle'; statusText = '⚔️ 奪還チャンス到来！';
+          } else {
+            statusClass = 'battle'; statusText = '⚔️ 争奪可能時間！';
             timerText = `争奪終了まで: ${formatDiff(bEnd - now)}`;
             targetTimeText = `争奪終了: ${formatFullDate(bEnd)}`;
-          } else {
-            statusClass = 'expired'; statusText = '⚠️ 争奪終了（要更新）';
-            timerText = '争奪期間終了'; targetTimeText = `最終争奪: ${formatFullDate(bEnd)}`;
           }
         } else {
           if (now < bStart) {
             statusClass = 'protected'; statusText = '🛡️ バリア保護中';
             timerText = `防衛戦まで: ${formatDiff(bStart - now)}`;
             targetTimeText = `争奪開始: ${formatFullDate(bStart)}`;
-          } else if (now >= bStart && now < bEnd) {
+          } else {
             statusClass = 'battle'; statusText = '⚔️ 争奪可能時間';
             timerText = `終了まで: ${formatDiff(bEnd - now)}`;
             targetTimeText = `争奪終了: ${formatFullDate(bEnd)}`;
-          } else {
-            statusClass = 'expired'; statusText = '⚠️ 争奪終了（要更新）';
-            timerText = '争奪期間終了'; targetTimeText = `最終争奪: ${formatFullDate(bEnd)}`;
           }
         }
 
@@ -585,8 +592,7 @@
               占有開始時刻: ${formatFullDate(f.captureTime)}
             </div>
             <div class="quick-actions">
-              <button class="action-btn" onclick="resetToNow(${f.id})" title="時刻を現在時刻に変更">占有NOW</button>
-              <button class="action-btn auto" onclick="autoAdvance(${f.id})" title="+96時間スライドして次周期へ">🔄 自動更新</button>
+              <button class="action-btn" onclick="resetToNow(${f.id})" title="時刻を現在時刻に変更">今占有</button>
               <button class="action-btn danger" onclick="markAsLost(${f.id})" title="敵同盟に奪われた状態に切替">競合奪取</button>
             </div>
           </div>`;
@@ -600,7 +606,7 @@
         const repeatLabels = { none: '単発', weekly: '毎週', biweekly: '隔週', monthly: '毎月' };
         const colorClass = `color-${e.color || 'purple'}`;
         const isVisible = e.visible !== false;
-        const visBtnText = isVisible ? '⭕️ 表示中' : '✖️ 非表示';
+        const visBtnText = isVisible ? '👁️ 表示中' : '🙈 非表示';
         const visStyle = isVisible ? '' : 'opacity:0.5; filter:grayscale(0.6);';
 
         return `
@@ -626,13 +632,12 @@
     }
   }
 
-  /* --- 2. ガントチャート描画（過去分非表示・現在時刻基準） --- */
+  /* --- 2. ガントチャート描画（現在時刻基準） --- */
   function renderGanttView() {
     const container = document.getElementById('ganttRows');
     const scale = document.getElementById('ganttScale');
     const now = new Date().getTime();
     
-    // ガントチャート範囲：現在から向こう7日間
     const rangeStart = now; 
     const rangeEnd = now + (7 * 24 * 60 * 60 * 1000);
     const totalDuration = rangeEnd - rangeStart;
@@ -644,7 +649,6 @@
       const bStart = pStart + PROTECT_MS;
       const bEnd = bStart + BATTLE_MS;
 
-      // 過去に完全に終了している施設バーはガントに描画しない
       if (bEnd < rangeStart) return '';
 
       const pLeft = Math.max(0, Math.min(100, ((pStart - rangeStart) / totalDuration) * 100));
@@ -663,7 +667,6 @@
         </div>`;
     }).join('');
 
-    // 表示ONのイベントのみ描画
     html += events.filter(e => e.visible !== false).map(e => {
       const eLeft = Math.max(0, Math.min(100, ((e.startMs - rangeStart) / totalDuration) * 100));
       const eWidth = Math.max(0, Math.min(100 - eLeft, ((e.endMs - e.startMs) / totalDuration) * 100));
@@ -729,7 +732,6 @@
         }
       });
 
-      // 表示ON（visible）のイベントのみカレンダー描画
       events.filter(e => e.visible !== false).forEach(e => {
         if (isEventActiveOnDate(e, cellDate)) {
           const colorClass = `color-${e.color || 'purple'}`;
@@ -868,6 +870,7 @@
       if (confirm(`施設 ${newFacs.length}件、イベント ${newEvts.length}件を取り込みますか？（既存データは上書きされます）`)) {
         facilities = newFacs;
         events = newEvts;
+        checkAndAutoAdvance();
         sortFacilities();
         localStorage.setItem('hw_facilities_v8', JSON.stringify(facilities));
         localStorage.setItem('hw_events_v3', JSON.stringify(events));
